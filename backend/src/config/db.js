@@ -15,16 +15,16 @@ const connectDB = async () => {
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
     return;
   } catch (error) {
-    if (isAtlas) {
-      // For Atlas, do NOT fall back — surface the error and exit
-      logger.error(`Failed to connect to MongoDB Atlas: ${error.message}`);
-      logger.error('Check your MONGO_URI, network access whitelist, and credentials.');
+    // In production, always exit — no fallback
+    if (isAtlas || process.env.NODE_ENV === 'production') {
+      logger.error(`Failed to connect to MongoDB: ${error.message}`);
+      logger.error('Check MONGO_URI, Atlas network access whitelist, and credentials.');
       process.exit(1);
     }
     logger.warn(`Could not connect to ${uri} — falling back to in-memory MongoDB.`);
   }
 
-  // Fallback: start an in-memory MongoDB server (local URI only)
+  // Fallback: start an in-memory MongoDB server (local/dev only)
   try {
     const { MongoMemoryServer } = require('mongodb-memory-server');
     memServer = await MongoMemoryServer.create();
