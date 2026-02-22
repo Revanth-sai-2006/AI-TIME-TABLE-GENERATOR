@@ -4,7 +4,8 @@ const logger = require('../utils/logger');
 let memServer = null;
 
 const connectDB = async () => {
-  let uri = process.env.MONGO_URI;
+  // Accept both MONGO_URI and MONGODB_URI (common naming variants)
+  let uri = process.env.MONGO_URI || process.env.MONGODB_URI;
   const isAtlas = uri && uri.startsWith('mongodb+srv://');
 
   // Try to connect to the configured URI
