@@ -141,12 +141,15 @@ const chatbot = async (req, res, next) => {
     });
 
     // Map prior conversation history (last 10 turns)
-    const chatHistory = history.slice(-10).map((h) => ({
+    // Gemini requires history to start with a 'user' turn — drop any leading bot messages
+    const rawHistory = history.slice(-10).map((h) => ({
       role: h.role === 'bot' ? 'model' : 'user',
       parts: [{ text: h.text }],
     }));
+    const firstUserIdx = rawHistory.findIndex((h) => h.role === 'user');
+    const safeHistory = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
 
-    const chat = model.startChat({ history: chatHistory });
+    const chat = model.startChat({ history: safeHistory });
     const result = await chat.sendMessage(message.trim());
     const reply = result.response.text();
 
