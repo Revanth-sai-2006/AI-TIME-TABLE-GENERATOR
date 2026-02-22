@@ -1,0 +1,566 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ════════════════════════════════════════════════════════════
+   AURORA LIVING BACKGROUND — dashboard main area
+   ════════════════════════════════════════════════════════════ */
+
+/* Floating orb animations */
+@keyframes orbDrift1 {
+  0%   { transform: translate(0%, 0%)   scale(1);    opacity: 0.55; }
+  25%  { transform: translate(12%, -8%) scale(1.12); opacity: 0.65; }
+  50%  { transform: translate(6%, 14%)  scale(0.92); opacity: 0.50; }
+  75%  { transform: translate(-10%, 5%) scale(1.08); opacity: 0.60; }
+  100% { transform: translate(0%, 0%)   scale(1);    opacity: 0.55; }
+}
+@keyframes orbDrift2 {
+  0%   { transform: translate(0%, 0%)    scale(1);    opacity: 0.45; }
+  33%  { transform: translate(-14%, 10%) scale(1.15); opacity: 0.55; }
+  66%  { transform: translate(8%, -12%)  scale(0.88); opacity: 0.40; }
+  100% { transform: translate(0%, 0%)    scale(1);    opacity: 0.45; }
+}
+@keyframes orbDrift3 {
+  0%   { transform: translate(0%, 0%)   scale(1);    opacity: 0.35; }
+  40%  { transform: translate(10%, 12%) scale(1.2);  opacity: 0.50; }
+  80%  { transform: translate(-6%, -8%) scale(0.9);  opacity: 0.30; }
+  100% { transform: translate(0%, 0%)   scale(1);    opacity: 0.35; }
+}
+@keyframes orbDrift4 {
+  0%   { transform: translate(0%, 0%)    scale(1);    opacity: 0.30; }
+  50%  { transform: translate(-12%, -6%) scale(1.18); opacity: 0.45; }
+  100% { transform: translate(0%, 0%)    scale(1);    opacity: 0.30; }
+}
+@keyframes gridScroll {
+  0%   { background-position: 0 0; }
+  100% { background-position: 32px 32px; }
+}
+
+/* Main wrapper that holds the living background */
+.aurora-bg {
+  position: relative;
+  background: #0d0205;
+  overflow: hidden;
+}
+
+/* Animated orbs via pseudo + children */
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.aurora-orb-1 {
+  width: 55vw; height: 55vw;
+  max-width: 680px; max-height: 680px;
+  background: radial-gradient(circle, #6b1a24 0%, transparent 70%);
+  top: -15%; left: -10%;
+  animation: orbDrift1 18s ease-in-out infinite;
+}
+.aurora-orb-2 {
+  width: 50vw; height: 50vw;
+  max-width: 600px; max-height: 600px;
+  background: radial-gradient(circle, #b45309 0%, transparent 70%);
+  bottom: -20%; right: -10%;
+  animation: orbDrift2 22s ease-in-out infinite;
+}
+.aurora-orb-3 {
+  width: 40vw; height: 40vw;
+  max-width: 500px; max-height: 500px;
+  background: radial-gradient(circle, #d4991f 0%, transparent 70%);
+  top: 30%; right: 15%;
+  animation: orbDrift3 26s ease-in-out infinite;
+}
+.aurora-orb-4 {
+  width: 35vw; height: 35vw;
+  max-width: 420px; max-height: 420px;
+  background: radial-gradient(circle, #3d0e5e 0%, transparent 70%);
+  bottom: 10%; left: 20%;
+  animation: orbDrift4 20s ease-in-out infinite;
+}
+
+/* Subtle dot-grid that scrolls slowly on top of orbs */
+.aurora-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  animation: gridScroll 8s linear infinite;
+  pointer-events: none;
+}
+
+/* Content positioned above orbs */
+.aurora-content {
+  position: relative;
+  z-index: 1;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply text-gray-800 antialiased;
+    background-color: #0d0205;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  h1, h2, h3, h4 { @apply font-semibold tracking-tight; }
+}
+
+@layer components {
+
+  /* ── Primary action button ───────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none;
+    background: linear-gradient(135deg, #6b1a24, #8b2030);
+    color: #f5de92;
+    border: 1px solid rgba(212,153,31,0.25);
+    box-shadow: 0 2px 8px rgba(107,26,36,0.35);
+  }
+  .btn-primary:hover:not(:disabled)  { background: linear-gradient(135deg, #7d1e2c, #9e2538); box-shadow: 0 4px 16px rgba(107,26,36,0.50); }
+  .btn-primary:active:not(:disabled) { filter: brightness(0.9); }
+
+  /* ── Secondary / outline button ──────────────────────────── */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); color: #fff; }
+
+  /* ── Danger button ───────────────────────────────────────── */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none;
+    background: rgba(248,113,113,0.12);
+    color: #f87171;
+    border: 1px solid rgba(248,113,113,0.28);
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(248,113,113,0.22); box-shadow: 0 4px 16px rgba(248,113,113,0.20); }
+
+  /* ── Dark glass modal overlay ─────────────────────────────────── */
+  .glass-modal {
+    background: linear-gradient(145deg, rgba(18,4,7,0.97) 0%, rgba(32,8,12,0.95) 100%);
+    border: 1px solid rgba(255,255,255,0.13);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.10);
+    border-radius: 1rem;
+  }
+
+  /* ── Gold / accent button ────────────────────────────────── */
+  .btn-gold {
+    @apply text-white px-5 py-2 rounded font-medium text-sm transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+    background-color: #d4991f;
+  }
+  .btn-gold:hover:not(:disabled) { background-color: #b37c10; }
+
+  /* ── Form input ───────────────────────────────────────────── */
+  .input-field {
+    @apply w-full rounded px-3 py-2 text-sm transition-all;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #f0e6d3;
+    outline: none;
+  }
+  .input-field:focus {
+    border-color: rgba(212,153,31,0.55);
+    box-shadow: 0 0 0 3px rgba(212,153,31,0.12);
+    background: rgba(255,255,255,0.09);
+  }
+  .input-field::placeholder { color: rgba(255,255,255,0.25); }
+  .input-field option { background: #1c0508; color: #f0e6d3; }
+  /* ── Luxury auth card inputs ─────────────────────────────── */
+  .input-royal {
+    @apply w-full px-4 py-3 text-sm rounded-md transition-all duration-200
+           focus:outline-none placeholder-shown:placeholder-opacity-60;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(212,153,31,0.25);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+  }
+  .input-royal::placeholder { color: rgba(245,222,146,0.35); }
+  .input-royal:focus {
+    background: rgba(255,255,255,0.11);
+    border-color: rgba(212,153,31,0.7);
+    box-shadow: 0 0 0 3px rgba(212,153,31,0.13), 0 0 12px rgba(212,153,31,0.1);
+  }
+
+  /* ── Gold shimmer submit button ──────────────────────────── */
+  .btn-royal {
+    @apply w-full h-12 flex items-center justify-center gap-2 rounded-md
+           font-semibold text-sm tracking-widest uppercase transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: linear-gradient(90deg,#8f600c 0%,#d4991f 40%,#e8b83a 60%,#b37c10 100%);
+    color: #1c0508;
+    box-shadow: 0 2px 16px rgba(212,153,31,0.35);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-royal::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.18) 50%,transparent 100%);
+    transform: translateX(-100%);
+    transition: transform 0.55s ease;
+  }
+  .btn-royal:hover:not(:disabled)::after { transform: translateX(100%); }
+  .btn-royal:hover:not(:disabled) {
+    box-shadow: 0 4px 24px rgba(232,184,58,0.55);
+    filter: brightness(1.07);
+  }
+  .btn-royal:active:not(:disabled) { filter: brightness(0.92); }
+  /* ── Official card ─────────────────────────────────────────── */
+  .card {
+    @apply rounded-xl p-5;
+    background: linear-gradient(135deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%);
+    border: 1px solid rgba(255,255,255,0.11);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  /* ── Section header inside pages ─────────────────────────── */
+  .section-header {
+    @apply flex items-center gap-3 pb-3 mb-5;
+    border-bottom: 1px solid #dfd0a8;
+  }
+  .section-header h2 {
+    @apply text-lg font-semibold;
+    color: #3d0e16;
+  }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .badge        { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold tracking-wide; }
+  .badge-blue   { background: rgba(96,165,250,0.15);  color: #93c5fd; border: 1px solid rgba(96,165,250,0.30); }
+  .badge-green  { background: rgba(52,211,153,0.15);  color: #6ee7b7; border: 1px solid rgba(52,211,153,0.30); }
+  .badge-yellow { background: rgba(251,191,36,0.15);  color: #fcd34d; border: 1px solid rgba(251,191,36,0.30); }
+  .badge-red    { background: rgba(248,113,113,0.15); color: #fca5a5; border: 1px solid rgba(248,113,113,0.30); }
+  .badge-gray   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.60); border: 1px solid rgba(255,255,255,0.15); }
+  .badge-gold   { background: rgba(212,153,31,0.15);  color: #fcd34d; border: 1px solid rgba(212,153,31,0.30); }
+  .badge-purple { background: rgba(192,132,252,0.15); color: #d8b4fe; border: 1px solid rgba(192,132,252,0.30); }
+
+  /* ── Official stat card (dashboard) ──────────────────────── */
+  .stat-card {
+    @apply rounded-lg flex flex-col p-6 transition-colors cursor-pointer;
+    background: #fffdf5;
+    border: 1px solid #dfd0a8;
+    box-shadow: 0 1px 3px rgba(107,80,0,0.08);
+    border-top: 3px solid #6b1a24;
+    gap: 0;
+  }
+  .stat-card.color-purple { border-top-color: #7c3aed; }
+  .stat-card.color-orange { border-top-color: #d97706; }
+  .stat-card.color-green  { border-top-color: #059669; }
+  .stat-card:hover {
+    background-color: #fff9e8;
+    border-color: #c9b07a;
+    border-top-color: inherit;
+    box-shadow: 0 2px 8px rgba(107,80,0,0.12);
+  }
+
+  /* ── Table styles ─────────────────────────────────────────── */
+  .official-table {
+    @apply w-full text-sm border-collapse;
+  }
+  .official-table thead th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border-b;
+    color: #f5de92;
+    background: linear-gradient(135deg, rgba(61,14,22,0.70) 0%, rgba(92,24,37,0.50) 100%);
+    border-color: rgba(212,153,31,0.25);
+    letter-spacing: 0.07em;
+  }
+  .official-table tbody tr {
+    @apply border-b transition-colors;
+    border-color: rgba(255,255,255,0.06);
+  }
+  .official-table tbody tr:hover { background-color: rgba(255,255,255,0.05); }
+  .official-table tbody td {
+    @apply px-4 py-3;
+    color: rgba(255,255,255,0.75);
+  }
+}
+
+/* ── Timetable grid ─────────────────────────────────────────── */
+.timetable-grid {
+  display: grid;
+  grid-template-columns: 110px repeat(5, 1fr);
+  gap: 1px;
+  background-color: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.timetable-cell {
+  background: rgba(255,255,255,0.03);
+  padding: 6px;
+  min-height: 68px;
+  font-size: 0.75rem;
+  transition: background 0.18s ease;
+}
+.timetable-cell:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.timetable-header {
+  background: linear-gradient(135deg, #3d0e16 0%, #5c1825 100%);
+  color: #f5de92;
+  font-weight: 700;
+  text-align: center;
+  padding: 12px 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 2px solid rgba(212,153,31,0.4);
+}
+
+.session-lecture   { border-left: 3px solid #60a5fa; background: rgba(96,165,250,0.10); border-radius: 6px; padding: 6px; }
+.session-lab       { border-left: 3px solid #c084fc; background: rgba(192,132,252,0.10); border-radius: 6px; padding: 6px; }
+.session-tutorial  { border-left: 3px solid #34d399; background: rgba(52,211,153,0.10); border-radius: 6px; padding: 6px; }
+
+/* ── Gold divider stripe ────────────────────────────────────── */
+.gold-stripe {
+  height: 3px;
+  background: linear-gradient(to right, #d4991f, #e8b83a, #d4991f);
+}
+
+/* ════════════════════════════════════════════════════════════
+   HACKATHON MICRO-INTERACTIONS
+   ════════════════════════════════════════════════════════════ */
+
+/* 1. Lift card on hover */
+.hover-lift {
+  transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), box-shadow 0.22s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.6), 0 4px 16px rgba(212,153,31,0.15) !important;
+}
+
+/* 2. Shimmer sweep — horizontal light across a surface */
+.hover-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.hover-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.28) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+  pointer-events: none;
+}
+.hover-shimmer:hover::after { transform: translateX(100%); }
+
+/* 3. Slide-right reveal arrow on list rows */
+.hover-slide-arrow {
+  position: relative;
+  transition: padding-right 0.22s ease;
+}
+.hover-slide-arrow .slide-arrow {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  color: #6b1a24;
+}
+.hover-slide-arrow:hover .slide-arrow {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* 4. Wobble on button hover — attention-grabbing */
+@keyframes wobble {
+  0%  { transform: rotate(0deg); }
+  15% { transform: rotate(-2deg); }
+  30% { transform: rotate(2deg); }
+  45% { transform: rotate(-1.5deg); }
+  60% { transform: rotate(1.5deg); }
+  75% { transform: rotate(-1deg); }
+  90% { transform: rotate(0.5deg); }
+  100%{ transform: rotate(0deg); }
+}
+.hover-wobble:hover { animation: wobble 0.5s ease; }
+
+/* 5. Border-slide — glowing left border creeps down */
+.hover-border-slide {
+  position: relative;
+  overflow: hidden;
+}
+.hover-border-slide::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 100%;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #d4991f, #6b1a24);
+  transition: top 0.28s cubic-bezier(.22,1,.36,1);
+}
+.hover-border-slide:hover::before { top: 0; }
+
+/* 6. Pulse ring on icon boxes */
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(212,153,31,0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(212,153,31,0); }
+  100% { box-shadow: 0 0 0 0 rgba(212,153,31,0); }
+}
+.group:hover .icon-pulse { animation: ringPulse 0.7s ease; }
+
+/* 7. Slide-in underline for quick-action labels */
+.hover-underline-slide {
+  position: relative;
+}
+.hover-underline-slide::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 0; height: 2px;
+  background: currentColor;
+  transition: width 0.25s ease;
+  border-radius: 1px;
+}
+.hover-underline-slide:hover::after { width: 100%; }
+/* ── Navbar title static gold glow ───────────────────────── */
+.navbar-title-glow {
+  color: #f5de92;
+  text-shadow:
+    0 0 8px rgba(245,222,146,0.6),
+    0 0 20px rgba(212,153,31,0.35);
+}
+/* ── Sidebar active link glow ───────────────────────────────── */
+.sidebar-active {
+  background: rgba(255,255,255,0.12);
+  border-left: 3px solid #e8b83a;
+  color: #fff;
+}
+.sidebar-link {
+  border-left: 3px solid transparent;
+  color: rgba(255,255,255,0.72);
+  transition: background 0.2s ease, color 0.2s ease, padding-left 0.2s ease, border-color 0.2s ease;
+}
+.sidebar-link:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  padding-left: 18px;
+  border-left-color: rgba(212,153,31,0.55);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: rgba(0,0,0,0.2); }
+::-webkit-scrollbar-thumb  { background: rgba(212,153,31,0.30); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(212,153,31,0.55); }
+
+/* ── Page transition ────────────────────────────────────────── */
+.animate-fade-in { animation: fadeIn 0.25s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Live Ticker scroll (Sensex ribbon) ─────────────────────── */
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-scroll {
+  display: flex;
+  width: max-content;
+  animation: tickerScroll 30s linear infinite;
+}
+.ticker-scroll:hover { animation-play-state: paused; }
+
+/* ── Sensex stat pulse ──────────────────────────────────────── */
+@keyframes statPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.stat-pop { animation: statPop 0.35s ease; }
+
+/* ── Glowing AMIS subtitle ──────────────────────────────────── */
+.text-glow-amis {
+  color: #f5de92;
+  text-shadow:
+    0 0 6px rgba(245, 222, 146, 0.9),
+    0 0 14px rgba(232, 184, 58, 0.75),
+    0 0 30px rgba(212, 153, 31, 0.55),
+    0 0 55px rgba(180, 120, 16, 0.35);
+  animation: amis-pulse 3s ease-in-out infinite;
+}
+@keyframes amis-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 6px rgba(245, 222, 146, 0.9),
+      0 0 14px rgba(232, 184, 58, 0.75),
+      0 0 30px rgba(212, 153, 31, 0.55),
+      0 0 55px rgba(180, 120, 16, 0.35);
+  }
+  50% {
+    text-shadow:
+      0 0 10px rgba(255, 240, 180, 1),
+      0 0 24px rgba(245, 222, 146, 0.95),
+      0 0 48px rgba(232, 184, 58, 0.8),
+      0 0 80px rgba(212, 153, 31, 0.5);
+  }
+}
+
+/* ── Emblem continuous gold glow ─────────────────────────────── */
+.emblem-glow {
+  animation: emblemGlow 2.5s ease-in-out infinite;
+}
+@keyframes emblemGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 18px rgba(212,153,31,0.55),
+      0 0 40px rgba(212,153,31,0.25),
+      0 0 70px rgba(212,153,31,0.12),
+      0 8px 24px rgba(0,0,0,0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(232,184,58,0.9),
+      0 0 60px rgba(212,153,31,0.55),
+      0 0 100px rgba(212,153,31,0.28),
+      0 8px 24px rgba(0,0,0,0.55);
+  }
+}
+
+/* ── Registration celebration animations ── */
+@keyframes confettiFall {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(100vh) translateX(var(--drift)) rotate(var(--rotate)); opacity: 0; }
+}
+
+@keyframes popIn {
+  0%   { transform: scale(0.5) translateY(40px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  0%   { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideUp {
+  0%   { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes ping {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  70%  { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50%       { opacity: 0.4; transform: scale(1.4) rotate(20deg); }
+}

@@ -1,0 +1,7 @@
+# Backend specific patterns
+node_modules/
+dist/
+logs/
+*.log
+gcp-service-account.json
+.env

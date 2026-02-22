@@ -1,0 +1,13 @@
+runtime: nodejs20
+env: standard
+
+env_variables:
+  VITE_API_URL: https://YOUR_BACKEND_URL/api
+
+handlers:
+  - url: /.*
+    static_files: dist/index.html
+    upload: dist/index.html
+
+  - url: /assets
+    static_dir: dist/assets
