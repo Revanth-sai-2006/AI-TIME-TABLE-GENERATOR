@@ -156,17 +156,19 @@ const chatbot = async (req, res, next) => {
 
     // Give meaningful error messages based on the error type
     const msg = err.message || '';
-    let clientMessage = 'Something went wrong. Please try again.';
+    let clientMessage = 'I\'m having trouble connecting right now. Please try again in a moment.';
 
     if (msg.includes('API_KEY_INVALID') || msg.includes('API key not valid')) {
-      clientMessage = 'Chatbot API key is invalid. Please check GEMINI_API_KEY in your .env file.';
+      clientMessage = 'Chatbot is not configured correctly. Please contact the administrator.';
     } else if (msg.includes('quota') || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-      clientMessage = 'Gemini quota exceeded. Your API key may need billing enabled. Please get a free key from aistudio.google.com.';
+      clientMessage = 'Chatbot is temporarily unavailable due to quota limits. Please try again later.';
     } else if (msg.includes('404') || msg.includes('not found')) {
-      clientMessage = 'Gemini model not found. Please check the model name in chatbotController.js.';
+      clientMessage = 'Chatbot service is unavailable. Please contact the administrator.';
     }
 
-    return res.status(502).json({ success: false, message: clientMessage });
+    // Return 200 with success:false so the frontend can display the message
+    // without triggering the global 5xx toast handler
+    return res.json({ success: false, message: clientMessage });
   }
 };
 
