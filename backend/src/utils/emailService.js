@@ -1,19 +1,25 @@
+const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// Create reusable transporter
+// ─── Resend (HTTP API — preferred: works on Render/Vercel, no SMTP ports needed) ──
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes('your_')) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+};
+
+// ─── Nodemailer SMTP fallback (local dev only) ────────────────────────────────
 const createTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD ||
       process.env.EMAIL_APP_PASSWORD.includes('PASTE') ||
       process.env.EMAIL_APP_PASSWORD.includes('your_')) {
-    return null; // Email not configured
+    return null;
   }
-
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',   // explicit host forces IPv4 resolution
+    host: 'smtp.gmail.com',
     port: 587,
-    secure: false,            // STARTTLS on port 587
-    family: 4,                // force IPv4 — avoids ECONNREFUSED on IPv6
+    secure: false,
+    family: 4,                // force IPv4
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_APP_PASSWORD,
@@ -42,9 +48,11 @@ const sendRegistrationConfirmation = async ({
   department,
   semester,
 }) => {
-  const transporter = createTransporter();
-  if (!transporter) {
-    logger.warn('Email not configured — skipping registration confirmation email.');
+  const resend = getResendClient();
+  const transporter = !resend ? createTransporter() : null;
+
+  if (!resend && !transporter) {
+    logger.warn('Email not configured — set RESEND_API_KEY (recommended) or EMAIL_USER + EMAIL_APP_PASSWORD.');
     return;
   }
 
@@ -164,18 +172,28 @@ const sendRegistrationConfirmation = async ({
   `.trim();
 
   try {
-    await transporter.sendMail({
-      from: `"TimetableGen AMIS" <${process.env.EMAIL_USER}>`,
-      to: studentEmail,
-      subject: `✅ Registered for ${courseCode} – ${courseName}`,
-      html,
-    });
+    if (resend) {
+      // ── Resend HTTP API (works on Render / any host — no SMTP ports needed) ──
+      const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+      await resend.emails.send({
+        from: `TimetableGen AMIS <${fromAddress}>`,
+        to: [studentEmail],
+        subject: `✅ Registered for ${courseCode} – ${courseName}`,
+        html,
+      });
+    } else {
+      // ── Nodemailer Gmail SMTP (local dev fallback) ──
+      await transporter.sendMail({
+        from: `"TimetableGen AMIS" <${process.env.EMAIL_USER}>`,
+        to: studentEmail,
+        subject: `✅ Registered for ${courseCode} – ${courseName}`,
+        html,
+      });
+    }
     logger.info(`✅ Registration email sent → ${studentEmail} for ${courseCode}`);
   } catch (err) {
     // Email failure must never break the registration flow
-    logger.error(`❌ Email send FAILED to ${studentEmail}: ${err.message}`);
-    logger.error(`   Check EMAIL_APP_PASSWORD in .env — must be a Gmail App Password, NOT your regular password.`);
-    logger.error(`   Generate one at: https://myaccount.google.com/apppasswords`);
+    logger.error(`Failed to send registration email to ${studentEmail}: ${err.message}`);
   }
 };
 
