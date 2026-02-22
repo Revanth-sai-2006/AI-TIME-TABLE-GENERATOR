@@ -17,13 +17,22 @@ const facultyRoutes = require('./src/routes/faculty');
 const studentRoutes = require('./src/routes/students');
 const registrationRoutes = require('./src/routes/registrations');
 const activityRoutes    = require('./src/routes/activity');
+const chatbotRoutes     = require('./src/routes/chatbot');
 
 const app = express();
 
 // Security middleware
 app.use(helmet());
+
+// Support multiple allowed origins via comma-separated CLIENT_ORIGIN env var
+const rawOrigins = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
 }));
 
@@ -54,6 +63,7 @@ app.use('/api/faculty', facultyRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/activity',      activityRoutes);
+app.use('/api/chatbot',       chatbotRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
