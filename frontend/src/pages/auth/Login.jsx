@@ -1,9 +1,117 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { Eye, EyeOff, Lock } from 'lucide-react';
+
+/* ── Animated canvas background ─────────────────────────────────── */
+function AnimatedBackground() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let animId;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Particle palette: maroon, crimson, gold tones
+    const palette = [
+      'rgba(212,153,31,',   // gold
+      'rgba(180,30,55,',    // crimson
+      'rgba(107,26,36,',    // maroon
+      'rgba(245,222,146,',  // pale gold
+      'rgba(232,184,58,',   // amber
+    ];
+
+    const particles = Array.from({ length: 55 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: Math.random() * 180 + 30,
+      dx: (Math.random() - 0.5) * 0.35,
+      dy: (Math.random() - 0.5) * 0.35,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      alpha: Math.random() * 0.07 + 0.02,
+      pulse: Math.random() * Math.PI * 2,
+      pulseSpeed: Math.random() * 0.012 + 0.004,
+    }));
+
+    // Floating sparkles (tiny gold dots)
+    const sparkles = Array.from({ length: 90 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: Math.random() * 1.8 + 0.4,
+      dx: (Math.random() - 0.5) * 0.5,
+      dy: -Math.random() * 0.6 - 0.15,  // drift upward
+      alpha: Math.random() * 0.6 + 0.1,
+      fade: Math.random() * 0.008 + 0.002,
+      fadeDir: 1,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw glowing orbs
+      particles.forEach(p => {
+        p.pulse += p.pulseSpeed;
+        const a = p.alpha + Math.sin(p.pulse) * 0.025;
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        grad.addColorStop(0, `${p.color}${Math.min(a * 2, 0.18)})`);
+        grad.addColorStop(0.5, `${p.color}${a})`);
+        grad.addColorStop(1, `${p.color}0)`);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < -p.r) p.x = canvas.width + p.r;
+        if (p.x > canvas.width + p.r) p.x = -p.r;
+        if (p.y < -p.r) p.y = canvas.height + p.r;
+        if (p.y > canvas.height + p.r) p.y = -p.r;
+      });
+
+      // Draw sparkles
+      sparkles.forEach(s => {
+        s.alpha += s.fade * s.fadeDir;
+        if (s.alpha > 0.7 || s.alpha < 0.05) s.fadeDir *= -1;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(232,184,58,${s.alpha})`;
+        ctx.fill();
+
+        s.x += s.dx;
+        s.y += s.dy;
+        if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
+        if (s.x < 0) s.x = canvas.width;
+        if (s.x > canvas.width) s.x = 0;
+      });
+
+      animId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 0 }}
+    />
+  );
+}
 
 export default function Login() {
   const { login } = useAuth();
@@ -28,9 +136,15 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="relative min-h-screen flex flex-col overflow-hidden"
       style={{ background: 'linear-gradient(160deg,#1c0508 0%,#6b1a24 55%,#2a0c12 100%)' }}
     >
+      {/* ── Animated live background ──────────────── */}
+      <AnimatedBackground />
+
+      {/* ── All content sits above canvas ─────────── */}
+      <div className="relative flex flex-col min-h-screen" style={{ zIndex: 1 }}>
+
       {/* ── Top gold stripe ───────────────────────── */}
       <div className="gold-stripe" />
 
@@ -198,6 +312,8 @@ export default function Login() {
           <strong style={{ color: '#e8b83a' }}>2300031900</strong>
         </p>
       </div>
+
+      </div>{/* end z-index wrapper */}
     </div>
   );
 }
