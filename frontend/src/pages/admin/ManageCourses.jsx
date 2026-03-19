@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { courseApi } from '../../services/api';
+import { courseApi, registrationApi } from '../../services/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Users } from 'lucide-react';
 
 const DEPTS = ['CSE', 'ECE', 'ME', 'CE', 'EE', 'IT', 'BCA', 'MCA'];
 const TYPES = ['THEORY', 'PRACTICAL', 'ELECTIVE', 'OPEN_ELECTIVE', 'PROJECT'];
@@ -83,6 +83,10 @@ function CourseModal({ course, onClose, onSave }) {
               <GLabel>Batch Size</GLabel>
               <input type="number" className="input-field" min="1" defaultValue={60} {...register('maxBatchSize', { valueAsNumber: true })} />
             </div>
+            <div>
+              <GLabel>Enrolled Students</GLabel>
+              <input type="number" className="input-field" min="0" defaultValue={0} placeholder="0 = auto" {...register('enrolledCount', { valueAsNumber: true })} />
+            </div>
             <div className="col-span-2 flex items-center gap-5">
               <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 <input type="checkbox" className="rounded accent-amber-400" {...register('requiresLab')} />
@@ -104,10 +108,79 @@ function CourseModal({ course, onClose, onSave }) {
   );
 }
 
+function CourseRegistrationsModal({ course, onClose, onUnregister, isUnregistering }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['course-registrations', course?._id],
+    queryFn: () => registrationApi.getCourseRegistrations(course._id).then((r) => r.data),
+    enabled: !!course?._id,
+  });
+
+  const registrations = data?.registrations || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="glass-modal w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fade-in">
+        <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div>
+            <h3 className="font-bold text-lg" style={{ color: '#f0e6d3' }}>Course Registrations</h3>
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.48)' }}>
+              {course?.code} · {course?.name}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg transition-colors" style={{ color: 'rgba(255,255,255,0.45)' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}><X size={18} /></button>
+        </div>
+
+        <div className="p-6">
+          {isLoading ? <LoadingSpinner /> : (
+            registrations.length === 0 ? (
+              <p className="text-sm text-center py-8" style={{ color: 'rgba(255,255,255,0.45)' }}>No active registrations for this course</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                      {['Student', 'Email', 'Semester', 'Division', 'Actions'].map((h) => (
+                        <th key={h} className="text-left py-3 px-3 text-xs font-bold uppercase tracking-wider"
+                          style={{ color: 'rgba(255,255,255,0.36)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrations.map((reg) => (
+                      <tr key={reg._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td className="py-3 px-3" style={{ color: '#f0e6d3' }}>{reg.student?.name || '—'}</td>
+                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.52)' }}>{reg.student?.email || '—'}</td>
+                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.52)' }}>{reg.student?.semester || '—'}</td>
+                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.52)' }}>{reg.student?.division || '—'}</td>
+                        <td className="py-3 px-3">
+                          <button
+                            onClick={() => onUnregister(reg)}
+                            disabled={isUnregistering}
+                            className="btn-danger text-xs px-3 py-1.5"
+                          >
+                            Unregister
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ManageCourses() {
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editCourse, setEditCourse] = useState(null);
+  const [regCourse, setRegCourse] = useState(null);
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterSem, setFilterSem] = useState('');
@@ -133,6 +206,17 @@ export default function ManageCourses() {
     mutationFn: (id) => courseApi.delete(id),
     onSuccess: () => { toast.success('Course deactivated'); qc.invalidateQueries({ queryKey: ['courses'] }); },
     onError: (err) => toast.error(err.message),
+  });
+
+  const unregisterMutation = useMutation({
+    mutationFn: (registrationId) => registrationApi.adminUnregister(registrationId),
+    onSuccess: () => {
+      toast.success('Student unregistered');
+      if (regCourse?._id) {
+        qc.invalidateQueries({ queryKey: ['course-registrations', regCourse._id] });
+      }
+    },
+    onError: (err) => toast.error(err.message || 'Failed to unregister student'),
   });
 
   const filtered = data?.courses?.filter((c) =>
@@ -205,6 +289,10 @@ export default function ManageCourses() {
                     </td>
                     <td className="py-3 px-3">
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setRegCourse(c)} className="p-1.5 rounded transition"
+                          style={{ color: '#34d399' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(52,211,153,0.12)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}><Users size={13} /></button>
                         <button onClick={() => { setEditCourse(c); setShowModal(true); }} className="p-1.5 rounded transition"
                           style={{ color: '#60a5fa' }}
                           onMouseEnter={e => e.currentTarget.style.background = 'rgba(96,165,250,0.12)'}
@@ -228,6 +316,20 @@ export default function ManageCourses() {
           course={editCourse}
           onClose={() => { setShowModal(false); setEditCourse(null); }}
           onSave={(data) => editCourse ? updateMutation.mutate({ id: editCourse._id, data }) : createMutation.mutate(data)}
+        />
+      )}
+
+      {regCourse && (
+        <CourseRegistrationsModal
+          course={regCourse}
+          onClose={() => setRegCourse(null)}
+          isUnregistering={unregisterMutation.isPending}
+          onUnregister={(reg) => {
+            const studentName = reg.student?.name || 'this student';
+            if (window.confirm(`Unregister ${studentName} from ${regCourse.name}?`)) {
+              unregisterMutation.mutate(reg._id);
+            }
+          }}
         />
       )}
     </div>

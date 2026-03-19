@@ -2,13 +2,9 @@ const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
 
-// ─── Resend (HTTP API — preferred: works on Render/Vercel, no SMTP ports needed) ──
-const getResendClient = () => {
-  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes('your_')) return null;
-  return new Resend(process.env.RESEND_API_KEY);
-};
-
-// ─── Nodemailer SMTP fallback (local dev only) ────────────────────────────────
+// ─── Nodemailer Gmail SMTP (primary — works for ANY recipient) ───────────────
+// Requires EMAIL_USER and EMAIL_APP_PASSWORD set in Render dashboard.
+// Uses port 465 (SMTPS/SSL) which is more reliably open on cloud hosts.
 const createTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD ||
       process.env.EMAIL_APP_PASSWORD.includes('PASTE') ||
@@ -17,8 +13,8 @@ const createTransporter = () => {
   }
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true,             // SSL on port 465
     family: 4,                // force IPv4
     auth: {
       user: process.env.EMAIL_USER,
@@ -26,6 +22,14 @@ const createTransporter = () => {
     },
     tls: { rejectUnauthorized: false },
   });
+};
+
+// ─── Resend HTTP API (fallback — only if Gmail SMTP is not configured) ────────
+// NOTE: onboarding@resend.dev can only deliver to your Resend signup email.
+//       To reach any recipient via Resend you must verify a custom domain.
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.includes('your_')) return null;
+  return new Resend(process.env.RESEND_API_KEY);
 };
 
 /**
@@ -48,11 +52,12 @@ const sendRegistrationConfirmation = async ({
   department,
   semester,
 }) => {
-  const resend = getResendClient();
-  const transporter = !resend ? createTransporter() : null;
+  // Gmail SMTP is primary (delivers to any recipient); Resend is fallback.
+  const transporter = createTransporter();
+  const resend = !transporter ? getResendClient() : null;
 
-  if (!resend && !transporter) {
-    logger.warn('Email not configured — set RESEND_API_KEY (recommended) or EMAIL_USER + EMAIL_APP_PASSWORD.');
+  if (!transporter && !resend) {
+    logger.warn('Email not configured — set EMAIL_USER + EMAIL_APP_PASSWORD in Render dashboard (or RESEND_API_KEY with a verified domain).');
     return;
   }
 
@@ -172,20 +177,20 @@ const sendRegistrationConfirmation = async ({
   `.trim();
 
   try {
-    if (resend) {
-      // ── Resend HTTP API (works on Render / any host — no SMTP ports needed) ──
-      const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-      await resend.emails.send({
-        from: `TimetableGen AMIS <${fromAddress}>`,
-        to: [studentEmail],
+    if (transporter) {
+      // ── Gmail SMTP (primary — delivers to any recipient) ──
+      await transporter.sendMail({
+        from: `"TimetableGen AMIS" <${process.env.EMAIL_USER}>`,
+        to: studentEmail,
         subject: `✅ Registered for ${courseCode} – ${courseName}`,
         html,
       });
     } else {
-      // ── Nodemailer Gmail SMTP (local dev fallback) ──
-      await transporter.sendMail({
-        from: `"TimetableGen AMIS" <${process.env.EMAIL_USER}>`,
-        to: studentEmail,
+      // ── Resend HTTP API (fallback — needs verified domain for non-signup emails) ──
+      const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+      await resend.emails.send({
+        from: `TimetableGen AMIS <${fromAddress}>`,
+        to: [studentEmail],
         subject: `✅ Registered for ${courseCode} – ${courseName}`,
         html,
       });

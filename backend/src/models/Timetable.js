@@ -13,6 +13,8 @@ const scheduleEntrySchema = new mongoose.Schema(
     duration: { type: Number, default: 1 }, // in hours; labs = 2 or 3
     sessionType: { type: String, enum: ['LECTURE', 'PRACTICAL', 'TUTORIAL', 'PROJECT'], default: 'LECTURE' },
     batchDivision: { type: String }, // A, B, C - for lab batch splits
+    section: { type: String },       // A, B, C, ... — for overflow parallel sections
+    isOverflow: { type: Boolean, default: false }, // true when student overflow split students into sections
   },
   { _id: true }
 );

@@ -30,13 +30,15 @@ export default function TimetableView() {
   const tt = data?.timetable;
   if (!tt) return null;
 
-  // Build grid: day -> timeSlotId -> entry
+  // Build grid: day -> timeSlotId -> entry[] (array — supports multiple sections per slot)
   const grid = {};
   DAYS.forEach((d) => { grid[d] = {}; });
   tt.schedule?.forEach((entry) => {
     if (!grid[entry.day]) grid[entry.day] = {};
     for (let i = 0; i < (entry.duration || 1); i++) {
-      grid[entry.day][entry.timeSlotId + i] = { ...entry, isFirst: i === 0, span: entry.duration };
+      const slotId = entry.timeSlotId + i;
+      if (!grid[entry.day][slotId]) grid[entry.day][slotId] = [];
+      grid[entry.day][slotId].push({ ...entry, isFirst: i === 0, span: entry.duration });
     }
   });
 
@@ -92,35 +94,53 @@ export default function TimetableView() {
                 {slot.label}
               </div>
               {DAYS.map((day) => {
-                const entry = grid[day][slot.id];
-                if (!entry) {
+                const entries = grid[day][slot.id] || [];
+                const firstEntries = entries.filter((e) => e.isFirst);
+
+                if (firstEntries.length === 0) {
+                  // Check if any multi-hour span covers this slot
+                  const spanned = entries.length > 0;
+                  if (spanned) return null;
                   return <div key={`${day}-${slot.id}`} className="timetable-cell" />;
                 }
-                if (!entry.isFirst) return null; // handled by span
-
-                const cfg = SESSION_COLORS[entry.sessionType] || SESSION_COLORS.LECTURE;
 
                 return (
                   <div
                     key={`${day}-${slot.id}`}
-                    className={`timetable-cell ${cfg.cls} rounded-lg m-1 p-2 transition-all duration-200 hover:scale-[1.03] hover:shadow-lg cursor-default`}
-                    style={{ gridRow: `span ${entry.span || 1}`, background: cfg.bg, boxShadow: `inset 0 0 0 1px ${cfg.accent}22` }}
+                    className="timetable-cell flex flex-col gap-1 p-1"
+                    style={{ gridRow: `span ${firstEntries[0]?.span || 1}` }}
                   >
-                    <p className="font-bold text-xs leading-tight truncate" style={{ color: cfg.accent }}>
-                      {entry.course?.code || '?'}
-                    </p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.75)' }} title={entry.course?.name}>
-                      {entry.course?.name?.substring(0, 20)}{entry.course?.name?.length > 20 ? '…' : ''}
-                    </p>
-                    <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.50)' }}>
-                      {entry.faculty?.name?.split(' ')[0]}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                      {entry.room?.roomNumber}
-                    </p>
-                    {entry.duration > 1 && (
-                      <span className="badge badge-purple mt-1">{entry.duration}hr lab</span>
-                    )}
+                    {firstEntries.map((entry, idx) => {
+                      const cfg = SESSION_COLORS[entry.sessionType] || SESSION_COLORS.LECTURE;
+                      return (
+                        <div
+                          key={idx}
+                          className={`${cfg.cls} rounded-lg p-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg cursor-default flex-1`}
+                          style={{ background: cfg.bg, boxShadow: `inset 0 0 0 1px ${cfg.accent}22`, minWidth: 0 }}
+                        >
+                          <div className="flex items-center gap-1">
+                            <p className="font-bold text-xs leading-tight truncate" style={{ color: cfg.accent }}>
+                              {entry.course?.code || '?'}
+                            </p>
+                            {entry.section && (
+                              <span className="text-xs font-bold px-1 rounded" style={{ background: `${cfg.accent}33`, color: cfg.accent }}>§{entry.section}</span>
+                            )}
+                          </div>
+                          <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.75)' }} title={entry.course?.name}>
+                            {entry.course?.name?.substring(0, 18)}{entry.course?.name?.length > 18 ? '…' : ''}
+                          </p>
+                          <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.50)' }}>
+                            {entry.faculty?.name?.split(' ')[0]}
+                          </p>
+                          <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                            {entry.room?.roomNumber}
+                          </p>
+                          {entry.duration > 1 && (
+                            <span className="badge badge-purple mt-1">{entry.duration}hr lab</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -136,7 +156,7 @@ export default function TimetableView() {
           <table className="official-table">
             <thead>
               <tr>
-                {['Course', 'Type', 'Day', 'Time', 'Faculty', 'Room', 'Duration'].map((h) => (
+                {['Course', 'Section', 'Type', 'Day', 'Time', 'Faculty', 'Room', 'Duration'].map((h) => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -154,6 +174,11 @@ export default function TimetableView() {
                       <span className="badge text-xs" style={{ background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.accent}44` }}>
                         {entry.sessionType}
                       </span>
+                    </td>
+                    <td>
+                      {entry.section
+                        ? <span className="badge badge-purple">§{entry.section}</span>
+                        : <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>}
                     </td>
                     <td style={{ color: 'rgba(255,255,255,0.70)' }}>{entry.day}</td>
                     <td style={{ color: 'rgba(255,255,255,0.60)', fontSize: '0.72rem' }}>{entry.startTime} – {entry.endTime}</td>

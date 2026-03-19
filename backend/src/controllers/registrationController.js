@@ -164,36 +164,6 @@ const registerCourse = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @desc    Drop a registered course
-// @route   DELETE /api/registrations/:courseId
-// @access  Student
-const dropCourse = async (req, res, next) => {
-  try {
-    const { courseId } = req.params;
-
-    // No academicYear filter — match by student+course+status only
-    const reg = await Registration.findOneAndUpdate(
-      { student: req.user._id, course: courseId, status: 'REGISTERED' },
-      { status: 'DROPPED', droppedAt: new Date() },
-      { new: true }
-    );
-
-    if (!reg) return res.status(404).json({ success: false, message: 'Registration not found' });
-
-    // ▶ Activity log
-    logActivity({
-      actor:      req.user.name,
-      actorRole:  'STUDENT',
-      action:     'DROPPED',
-      entity:     'Course',
-      entityName: courseId,
-      details:    `${req.user.name} dropped course registration`,
-    });
-
-    res.json({ success: true, message: 'Course dropped successfully' });
-  } catch (err) { next(err); }
-};
-
 // @desc    Get my registered courses
 // @route   GET /api/registrations/my
 // @access  Student
@@ -225,4 +195,40 @@ const getCourseRegistrations = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAvailableCourses, registerCourse, dropCourse, getMyRegistrations, getCourseRegistrations };
+// @desc    Admin: unregister a student from a course
+// @route   DELETE /api/registrations/admin/:registrationId
+// @access  Admin
+const adminDropRegistration = async (req, res, next) => {
+  try {
+    const { registrationId } = req.params;
+
+    const reg = await Registration.findById(registrationId)
+      .populate('student', 'name')
+      .populate('course', 'code name');
+
+    if (!reg) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    if (reg.status !== 'REGISTERED') {
+      return res.status(409).json({ success: false, message: 'Registration is not active' });
+    }
+
+    reg.status = 'DROPPED';
+    reg.droppedAt = new Date();
+    await reg.save();
+
+    logActivity({
+      actor: req.user.name,
+      actorRole: 'ADMIN',
+      action: 'DROPPED',
+      entity: 'CourseRegistration',
+      entityName: `${reg.course?.code || ''} ${reg.course?.name || ''}`.trim() || registrationId,
+      details: `${req.user.name} unregistered ${reg.student?.name || 'student'} from ${reg.course?.code || 'course'}`,
+    });
+
+    return res.json({ success: true, message: 'Student unregistered successfully' });
+  } catch (err) { next(err); }
+};
+
+module.exports = { getAvailableCourses, registerCourse, getMyRegistrations, getCourseRegistrations, adminDropRegistration };

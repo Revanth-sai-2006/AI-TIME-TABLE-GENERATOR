@@ -95,24 +95,189 @@ class Scheduler {
   // ===========================
   async _assignCourse(course) {
     const sessionsNeeded = this._buildSessionPlan(course);
+    const numSections = this._getNumSections(course);
     let allAssigned = true;
 
+    if (numSections > 1) {
+      logger.info(`[Scheduler] Course ${course.code} requires ${numSections} parallel sections (${course.enrolledCount} students enrolled)`);
+    }
+
     for (const session of sessionsNeeded) {
-      const slot = this._findBestSlot(course, session);
-      if (slot) {
-        this._commitSlot(course, session, slot);
+      let assigned = false;
+
+      if (numSections > 1 && session.type !== 'PRACTICAL') {
+        // Overflow: split into parallel sections across multiple rooms
+        assigned = this._assignSectionedSession(course, session, numSections);
+        if (!assigned) {
+          logger.warn(`[Scheduler] Could not place sectioned session for ${course.code}, falling back to single section`);
+          const slot = this._findBestSlot(course, session);
+          if (slot) { this._commitSlot(course, session, slot); assigned = true; }
+        }
       } else {
-        allAssigned = false;
-        // Try backtracking: swap an existing entry to make room
-        const swapped = this._backtrackSwap(course, session);
-        if (swapped) {
-          this.conflictsResolved++;
+        const slot = this._findBestSlot(course, session);
+        if (slot) {
+          this._commitSlot(course, session, slot);
+          assigned = true;
+        } else {
+          // Try backtracking: swap an existing entry to make room
+          const swapped = this._backtrackSwap(course, session);
+          if (swapped) { this.conflictsResolved++; assigned = true; }
         }
       }
+
+      if (!assigned) allAssigned = false;
       this.iterations++;
     }
 
     return allAssigned;
+  }
+
+  // ===========================
+  // Calculate how many parallel sections are needed
+  // ===========================
+  _getNumSections(course) {
+    const enrolled = course.enrolledCount || 0;
+    if (enrolled === 0) return 1; // No enrollment data — single section
+
+    // Find the largest classroom
+    const largest = this.rooms
+      .filter((r) => r.type === 'CLASSROOM')
+      .sort((a, b) => b.capacity - a.capacity)[0];
+
+    if (!largest || enrolled <= largest.capacity) return 1;
+
+    // Split into sections that fill the largest available room
+    const sectionSize = largest.capacity;
+    return Math.min(6, Math.ceil(enrolled / sectionSize)); // Cap at 6 sections
+  }
+
+  // ===========================
+  // Assign a session split across N parallel rooms (overflow handling)
+  // ===========================
+  _assignSectionedSession(course, session, numSections) {
+    const groupKey = this._groupKey(course);
+    const sectionLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+    for (const day of this._shuffled(WORKING_DAYS)) {
+      for (const slot of this.availableSlots) {
+        // Group must be free
+        const duration = session.duration || 1;
+        const startIdx = this.availableSlots.findIndex((s) => s.id === slot.id);
+        if (startIdx + duration - 1 >= this.availableSlots.length) continue;
+
+        let groupFree = true;
+        for (let i = 0; i < duration; i++) {
+          const s = this.availableSlots[startIdx + i];
+          if (this._groupOccupied(groupKey, `${day}_${s.id}`)) { groupFree = false; break; }
+        }
+        if (!groupFree) continue;
+
+        // Find N suitable rooms at this slot
+        const rooms = this._findNRooms(course, session, day, slot, numSections);
+        if (rooms.length < numSections) continue;
+
+        // Find eligible faculty (at least 1; reuse if not enough)
+        const faculties = this._findNFaculty(course, day, slot, duration, numSections);
+        if (faculties.length === 0) continue;
+
+        // Commit each section
+        for (let sec = 0; sec < numSections; sec++) {
+          const room = rooms[sec];
+          const faculty = faculties[Math.min(sec, faculties.length - 1)];
+          this._commitSectionSlot(course, session, { day, slot }, room, faculty, sectionLabels[sec]);
+        }
+
+        // Mark group as busy for this slot (students can't attend anything else)
+        for (let i = 0; i < duration; i++) {
+          const s = this.availableSlots[startIdx + i];
+          this._markOccupied(this.groupGrid, groupKey, `${day}_${s.id}`);
+        }
+
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Find N available rooms of suitable type at a given slot
+  _findNRooms(course, session, day, slot, n) {
+    const requiredType = session.type === 'PRACTICAL' ? 'LAB' : 'CLASSROOM';
+    const duration = session.duration || 1;
+    const startIdx = this.availableSlots.findIndex((s) => s.id === slot.id);
+    const found = [];
+
+    for (const room of this.rooms) {
+      if (room.type !== requiredType) continue;
+
+      let roomFree = true;
+      for (let i = 0; i < duration; i++) {
+        const s = this.availableSlots[startIdx + i];
+        if (!s) { roomFree = false; break; }
+        const key = `${day}_${s.id}`;
+        if (this._isOccupied(this.roomGrid, room._id.toString(), key)) { roomFree = false; break; }
+      }
+
+      if (roomFree) {
+        found.push(room);
+        if (found.length === n) break;
+      }
+    }
+
+    return found;
+  }
+
+  // Find up to N eligible faculty at the given slot (returns what's available)
+  _findNFaculty(course, day, slot, duration, n) {
+    const eligible = this.faculty.filter((f) => {
+      const fId = f._id.toString();
+      if (course.eligibleFaculty && course.eligibleFaculty.length > 0) {
+        if (!course.eligibleFaculty.map((id) => id.toString()).includes(fId)) return false;
+      } else {
+        if (f.department !== course.department) return false;
+      }
+      const isUnavailable = (f.unavailableSlots || []).some(
+        (u) => u.day === day && u.timeSlotId === slot.id
+      );
+      if (isUnavailable) return false;
+
+      for (let i = 0; i < duration; i++) {
+        const s = this.availableSlots.find((av) => av.id === slot.id + i);
+        if (!s) return false;
+        if (this._isOccupied(this.facultyGrid, fId, `${day}_${s.id}`)) return false;
+      }
+      return true;
+    });
+
+    return eligible
+      .sort((a, b) => (a.currentHoursPerWeek || 0) - (b.currentHoursPerWeek || 0))
+      .slice(0, n);
+  }
+
+  // Commit a single section slot (does NOT mark groupGrid — caller handles it)
+  _commitSectionSlot(course, session, { day, slot }, room, faculty, sectionLabel) {
+    const { duration = 1, type } = session;
+    const startIdx = this.availableSlots.findIndex((s) => s.id === slot.id);
+
+    for (let i = 0; i < duration; i++) {
+      const s = this.availableSlots[startIdx + i];
+      const key = `${day}_${s.id}`;
+      this._markOccupied(this.facultyGrid, faculty._id.toString(), key);
+      this._markOccupied(this.roomGrid, room._id.toString(), key);
+    }
+
+    this.schedule.push({
+      course: course._id,
+      faculty: faculty._id,
+      room: room._id,
+      day,
+      timeSlotId: slot.id,
+      startTime: slot.start,
+      endTime: this.availableSlots[startIdx + duration - 1]?.end || slot.end,
+      duration,
+      sessionType: type,
+      section: sectionLabel,        // e.g. 'A', 'B', 'C'
+      isOverflow: true,
+    });
   }
 
   // Build list of sessions needed for a course
@@ -603,6 +768,21 @@ const analyzeConstraints = async ({ courses, faculty, rooms }) => {
   if (overloaded.length > 0) {
     warnings.push(`${overloaded.length} faculty members are near/at workload capacity`);
     recommendations.push('Consider hiring additional faculty or redistributing electives');
+  }
+
+  // Overflow: enrollment exceeds largest classroom
+  const maxRoomCap = Math.max(...rooms.filter((r) => r.type === 'CLASSROOM').map((r) => r.capacity), 0);
+  const overflowCourses = courses.filter((c) => (c.enrolledCount || 0) > maxRoomCap && c.enrolledCount > 0);
+  if (overflowCourses.length > 0) {
+    overflowCourses.forEach((c) => {
+      const sections = Math.ceil(c.enrolledCount / maxRoomCap);
+      warnings.push(`${c.code}: ${c.enrolledCount} students > largest room (${maxRoomCap}) → will be split into ${sections} parallel sections`);
+    });
+    recommendations.push('Ensure enough faculty are available for parallel sections');
+    const totalExtraSections = overflowCourses.reduce((sum, c) => sum + Math.ceil(c.enrolledCount / maxRoomCap) - 1, 0);
+    if (totalExtraSections > faculty.length - 1) {
+      warnings.push(`Need ${totalExtraSections} extra faculty for overflow sections but only ${faculty.length} total faculty available`);
+    }
   }
 
   return { totalHoursNeeded, availableSlots, feasible, warnings, recommendations };

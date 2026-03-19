@@ -57,6 +57,8 @@ const courseSchema = new mongoose.Schema(
     eligibleFaculty: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Faculty' }],
 
     maxBatchSize: { type: Number, default: 60 },
+    // Actual enrolled students count — used for overflow/section-splitting logic
+    enrolledCount: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

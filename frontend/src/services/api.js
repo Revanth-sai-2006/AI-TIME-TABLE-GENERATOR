@@ -109,8 +109,8 @@ export const registrationApi = {
   getAvailableCourses: (params) => api.get('/registrations/courses', { params }),
   getMyRegistrations: (params) => api.get('/registrations/my', { params }),
   register: (data) => api.post('/registrations', data),
-  drop: (courseId, params) => api.delete(`/registrations/${courseId}`, { params }),
   getCourseRegistrations: (courseId) => api.get(`/registrations/course/${courseId}`),
+  adminUnregister: (registrationId) => api.delete(`/registrations/admin/${registrationId}`),
 };
 
 // Live Activity Feed (admin)

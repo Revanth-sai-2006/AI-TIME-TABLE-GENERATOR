@@ -2,6 +2,7 @@ const Timetable = require('../models/Timetable');
 const Course = require('../models/Course');
 const Faculty = require('../models/Faculty');
 const Room = require('../models/Room');
+const Registration = require('../models/Registration');
 const schedulerService = require('../services/schedulerService');
 const logger = require('../utils/logger');
 const logActivity = require('../utils/activityLogger');
@@ -45,11 +46,33 @@ const generateTimetable = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No active courses found for this department/semester.' });
     }
 
+    // Attach real enrollment counts so the scheduler can split sections if needed
+    const enrollmentCounts = await Registration.aggregate([
+      { $match: { academicYear, status: 'APPROVED', course: { $in: courses.map((c) => c._id) } } },
+      { $group: { _id: '$course', count: { $sum: 1 } } },
+    ]);
+    const enrollMap = {};
+    enrollmentCounts.forEach(({ _id, count }) => { enrollMap[_id.toString()] = count; });
+    const coursesWithEnrollment = courses.map((c) => {
+      const obj = c.toObject();
+      obj.enrolledCount = enrollMap[c._id.toString()] || c.enrolledCount || 0;
+      return obj;
+    });
+
+    // Log overflow warnings
+    const maxRoomCap = Math.max(...rooms.filter(r => r.type === 'CLASSROOM').map(r => r.capacity), 0);
+    coursesWithEnrollment.forEach((c) => {
+      if (c.enrolledCount > 0 && c.enrolledCount > maxRoomCap) {
+        const sections = Math.ceil(c.enrolledCount / maxRoomCap);
+        logger.info(`[OverflowCheck] ${c.code}: ${c.enrolledCount} students, max room=${maxRoomCap} → ${sections} sections needed`);
+      }
+    });
+
     // Run the scheduling algorithm (async)
     const startTime = Date.now();
     logger.info(`Starting timetable generation for ${department} Sem-${semester}`);
 
-    const result = await schedulerService.generate({ courses, faculty, rooms, department, semester });
+    const result = await schedulerService.generate({ courses: coursesWithEnrollment, faculty, rooms, department, semester });
 
     const duration = Date.now() - startTime;
 
@@ -86,7 +109,17 @@ const generateTimetable = async (req, res, next) => {
       success: true,
       message: 'Timetable generated successfully',
       timetable: await timetable.populate(['schedule.course', 'schedule.faculty', 'schedule.room']),
-      stats: { duration, score: result.score, conflicts: result.conflicts, iterations: result.iterations },
+      stats: {
+        duration,
+        score: result.score,
+        conflicts: result.conflicts,
+        iterations: result.iterations,
+        overflowSections: result.schedule.filter((e) => e.isOverflow).length > 0
+          ? coursesWithEnrollment
+              .filter((c) => c.enrolledCount > maxRoomCap)
+              .map((c) => ({ course: c.code, enrolled: c.enrolledCount, sections: Math.ceil(c.enrolledCount / maxRoomCap) }))
+          : [],
+      },
     });
   } catch (err) {
     next(err);

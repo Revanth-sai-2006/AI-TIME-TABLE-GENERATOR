@@ -5,7 +5,7 @@ import { registrationApi } from '../../services/api';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import {
-  BookOpen, CheckCircle, XCircle, Clock, Award,
+  BookOpen, CheckCircle, Clock, Award,
   ClipboardList, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Star,
 } from 'lucide-react';
 
@@ -210,16 +210,6 @@ export default function CourseRegistration() {
     },
   });
 
-  const dropMutation = useMutation({
-    mutationFn: (courseId) => registrationApi.drop(courseId, { academicYear: CURRENT_YEAR }),
-    onSuccess: () => {
-      toast.success('Course dropped');
-      qc.invalidateQueries({ queryKey: ['reg-courses', user?.id] });
-      qc.invalidateQueries({ queryKey: ['my-registrations', user?.id] });
-    },
-    onError: (err) => toast.error(err.response?.data?.message || 'Drop failed'),
-  });
-
   const courses = coursesData?.courses || [];
   const myRegs = myRegsData?.registrations || [];
   const totalCredits = myRegsData?.totalCredits || 0;
@@ -294,15 +284,6 @@ export default function CourseRegistration() {
                         <p className="text-xs text-gray-500 truncate">{reg.course?.name}</p>
                         <p className="text-xs text-primary-600 font-medium mt-0.5">{reg.course?.credits} credits</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Drop ${reg.course?.name}?`)) dropMutation.mutate(reg.course?._id);
-                        }}
-                        className="ml-2 p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition"
-                        title="Drop course"
-                      >
-                        <XCircle size={16} />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -342,8 +323,7 @@ export default function CourseRegistration() {
                 <div className="space-y-3">
                   {courses.map((course) => {
                     const isExpanded = expandedCourse === course._id;
-                    const isPending =
-                      registerMutation.isPending || dropMutation.isPending;
+                    const isPending = registerMutation.isPending;
 
                     return (
                       <div
@@ -404,13 +384,7 @@ export default function CourseRegistration() {
                           {/* Action button */}
                           <div className="shrink-0">
                             {course.isRegistered ? (
-                              <button
-                                onClick={() => { if (window.confirm(`Drop ${course.name}?`)) dropMutation.mutate(course._id); }}
-                                disabled={isPending}
-                                className="btn-danger text-xs px-3 py-1.5"
-                              >
-                                Drop
-                              </button>
+                              <span className="badge badge-green text-xs px-3 py-1.5">Registered</span>
                             ) : (
                               <button
                                 onClick={() => registerMutation.mutate(course._id)}
